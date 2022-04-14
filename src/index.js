@@ -1,7 +1,10 @@
 const express = require("express");
 const cors = require("cors");
 
-const { v4: uuidv4, validate } = require("uuid");
+const { v4: uuidv4, validate: uuidValidate } = require("uuid");
+const { validate } = require("uuid");
+const { request } = require("express");
+const { status } = require("express/lib/response");
 
 const app = express();
 app.use(express.json());
@@ -26,23 +29,57 @@ function checksExistsUserAccount(request, response, next) {
 function checksCreateTodosUserAvailability(request, response, next) {
   const { user } = request;
 
-  const findPlan = users.find((user) => user.pro === false && user.pro >= 10);
+  if ((!user.pro && user.todos.length <= 9) || user.pro) {
+    request.user = user;
 
-  if (findPlan) {
-    return response.status(403).json({ error: "Todo Error" });
+    return next();
   }
 
-  if (user.pro !== true && user.todos <= 10) {
-    return next();
+  if (!user.pro && user.todos.length >= 10) {
+    return response.status(403).json({ error: "User in Free Plan" });
   }
 }
 
 function checksTodoExists(request, response, next) {
-  // Complete aqui
+  const { username } = request.headers;
+  const { id } = request.params;
+
+  const user = users.find((user) => user.username === username);
+
+  if (!user) {
+    return response.status(404).json({ error: "Not Found Username" });
+  }
+
+  if (!validate(id)) {
+    return response.status(400).json({ error: " Id incorrect" });
+  }
+
+  const userTodo = user.todos.find((todo) => todo.id === id);
+
+  if (!userTodo) {
+    return response
+      .status(404)
+      .json({ error: "Everything does not belong to the user" });
+  }
+
+  request.user = user;
+  request.todo = userTodo;
+
+  return next();
 }
 
 function findUserById(request, response, next) {
-  // Complete aqui
+  const { id } = request.params;
+
+  const userId = users.find((user) => user.id === id);
+
+  if (!userId) {
+    return response.status(404).json({ error: "User Id Not Found" });
+  }
+
+  request.user = userId;
+
+  return next();
 }
 
 app.post("/users", (request, response) => {
